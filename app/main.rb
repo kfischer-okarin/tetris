@@ -1,4 +1,5 @@
-FIELD_WIDTH = 20
+FIELD_WIDTH = 10
+FIELD_HEIGHT = 20
 INPUT_TIMEOUT = 5
 
 def render_ui
@@ -6,8 +7,8 @@ def render_ui
 end
 
 def init_field
-  Array.new(10) {
-    Array.new(FIELD_WIDTH)
+  Array.new(FIELD_WIDTH) {
+    Array.new(FIELD_HEIGHT)
   }
 end
 
@@ -38,7 +39,13 @@ end
 
 def random_shape
   [
-    [[-1, 0], [0, 0], [1, 0], [2, 0]]
+    [[-1, 0], [0, 0], [1, 0], [2, 0]], # I
+    [[-1, 1], [-1, 0], [0, 0], [0, 1]], # J
+    [[-1, 0], [0, 0], [1, 0], [1, 1]], # L
+    [[0, 0], [1, 0], [0, -1], [1, -1]], # O
+    [[-1, -1], [0, -1], [0, 0], [1, 0]], # S
+    [[-1, 0], [0, 0], [1, 0], [0, 1]], # T
+    [[-1, 0], [0, 0], [0, -1], [1, -1]] # Z
   ].sample
 end
 
@@ -56,12 +63,18 @@ Tetromino = Struct.new(:position, :shape, :type) do
   end
 
   def rotated
+    return self if shape == [[0, 0], [1, 0], [0, -1], [1, -1]]
+
     new_shape = shape.map { |x, y| [y, -x] }
     Tetromino.new(position, new_shape, type)
   end
 end
 
 def setup_next_block(args)
+  args.state.next_block = Tetromino.new([15, 15], random_shape, random_type)
+end
+
+def setup_new_block(args)
   args.state.current_block = nil
   args.state.next_block_tick = args.state.tick_count + 1.seconds
 end
@@ -69,6 +82,7 @@ end
 def setup(args)
   args.state.field = init_field
   setup_next_block(args)
+  setup_new_block(args)
   args.state.next_sink_tick = 0
   args.state.sink_interval = 30
   args.state.next_move_possible_tick = 0
@@ -84,8 +98,9 @@ def create_new_block_if_needed(args)
   return unless args.state.current_block.nil?
 
   if args.state.tick_count >= args.state.next_block_tick
-    args.state.current_block = Tetromino.new([4, 19], random_shape, random_type)
+    args.state.current_block = args.state.next_block.instance_eval { Tetromino.new([4, 19], shape, type) }
     args.state.next_sink_tick = args.state.tick_count + args.state.sink_interval
+    setup_next_block(args)
   end
 end
 
@@ -118,7 +133,7 @@ def handle_block_sink(args)
     end
 
     handle_delete_lines(args)
-    setup_next_block(args)
+    setup_new_block(args)
   else
     args.state.current_block = next_position
     args.state.next_sink_tick = args.state.tick_count + args.state.sink_interval
@@ -133,7 +148,6 @@ end
 
 def handle_delete_lines(args)
   y_coordinates = args.state.current_block.positions.map(&:y).uniq.sort.reverse
-  puts "Y: #{y_coordinates}"
   y_coordinates.each do |y|
     if (0...FIELD_WIDTH).all? { |x| args.state.field[x][y] }
       args.state.field = delete_line(args.state.field, y)
@@ -153,6 +167,7 @@ def render(args)
   args.outputs.primitives << render_ui
   args.outputs.primitives << render_field(args.state.field)
   args.outputs.primitives << render_tetromino(args.state.current_block) if args.state.current_block
+  args.outputs.primitives << render_tetromino(args.state.next_block)
 end
 
 def tick(args)
