@@ -53,6 +53,11 @@ Tetromino = Struct.new(:position, :shape, :type) do
   def in_direction(dir)
     Tetromino.new([position.x + dir.x, position.y + dir.y], shape, type)
   end
+
+  def rotated
+    new_shape = shape.map { |x, y| [y, -x] }
+    Tetromino.new(position, new_shape, type)
+  end
 end
 
 def setup_next_block(args)
@@ -71,6 +76,7 @@ end
 def process_input(args)
   args.state.input_direction = args.inputs.keyboard.directional_vector
   args.state.input_direction.y = 0 if args.state.input_direction && args.state.input_direction.y > 0
+  args.state.rotate = args.inputs.keyboard.key_down.space
 end
 
 def create_new_block_if_needed(args)
@@ -80,6 +86,13 @@ def create_new_block_if_needed(args)
     args.state.current_block = Tetromino.new([4, 19], random_shape, random_type)
     args.state.next_sink_tick = args.state.tick_count + args.state.sink_interval
   end
+end
+
+def handle_rotate(args)
+  return unless args.state.current_block && args.state.rotate
+
+  rotated_block = args.state.current_block.rotated
+  args.state.current_block = rotated_block unless rotated_block.colliding?(args.state.field)
 end
 
 def handle_move(args)
@@ -112,6 +125,7 @@ end
 
 def calc(args)
   create_new_block_if_needed(args)
+  handle_rotate(args)
   handle_move(args)
   handle_block_sink(args)
 end
