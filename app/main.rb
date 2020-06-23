@@ -1,3 +1,4 @@
+FIELD_WIDTH = 20
 INPUT_TIMEOUT = 5
 
 def render_ui
@@ -6,7 +7,7 @@ end
 
 def init_field
   Array.new(10) {
-    Array.new(20)
+    Array.new(FIELD_WIDTH)
   }
 end
 
@@ -69,7 +70,7 @@ def setup(args)
   args.state.field = init_field
   setup_next_block(args)
   args.state.next_sink_tick = 0
-  args.state.sink_interval = 90
+  args.state.sink_interval = 30
   args.state.next_move_possible_tick = 0
 end
 
@@ -99,7 +100,7 @@ def handle_move(args)
   return unless args.state.current_block && args.state.input_direction && args.state.tick_count >= args.state.next_move_possible_tick
 
   if args.state.input_direction.y < 0
-    args.state.next_sink_tick = [args.state.next_sink_tick, args.state.tick_count + 5].min
+    args.state.next_sink_tick = [args.state.next_sink_tick, args.state.tick_count].min
   else
     next_position = args.state.current_block.in_direction(args.state.input_direction)
     args.state.current_block = next_position unless next_position.colliding?(args.state.field)
@@ -116,10 +117,27 @@ def handle_block_sink(args)
       args.state.field[p.x][p.y] = args.state.current_block.type
     end
 
+    handle_delete_lines(args)
     setup_next_block(args)
   else
     args.state.current_block = next_position
     args.state.next_sink_tick = args.state.tick_count + args.state.sink_interval
+  end
+end
+
+def delete_line(field, y)
+  field.map { |column|
+    column[0...y] + column[(y + 1)...FIELD_WIDTH] + [nil]
+  }
+end
+
+def handle_delete_lines(args)
+  y_coordinates = args.state.current_block.positions.map(&:y).uniq.sort.reverse
+  puts "Y: #{y_coordinates}"
+  y_coordinates.each do |y|
+    if (0...FIELD_WIDTH).all? { |x| args.state.field[x][y] }
+      args.state.field = delete_line(args.state.field, y)
+    end
   end
 end
 
